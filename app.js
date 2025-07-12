@@ -4,6 +4,7 @@ const db = require("./db");
 const app = express(); 
 const cors = require('cors');
 
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -111,76 +112,6 @@ app.get("/displayQ", (req, res) => {
 
 
 
-// Get all questions with vote count
-app.get('/', async (req, res) => {
-  try {
-    const [questions] = await db.query(`
-      SELECT q.*, 
-        COALESCE(SUM(v.vote_type = 'up'), 0) AS upvotes,
-        COALESCE(SUM(v.vote_type = 'down'), 0) AS downvotes
-      FROM questions q
-      LEFT JOIN votes v ON q.id = v.question_id
-      GROUP BY q.id
-      ORDER BY q.created_at DESC
-    `);
-    res.json(questions);
-  } catch (err) {
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-// Get answers for a question
-app.get('/:id/answers', async (req, res) => {
-  try {
-    const [answers] = await db.query(
-      'SELECT * FROM answers WHERE question_id = ? ORDER BY created_at DESC',
-      [req.params.id]
-    );
-    res.json(answers);
-  } catch (err) {
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-// Post an answer
-app.post('/:id/answers', async (req, res) => {
-  const { user_id, answer } = req.body;
-  try {
-    await db.query(
-      'INSERT INTO answers (question_id, user_id, answer) VALUES (?, ?, ?)',
-      [req.params.id, user_id, answer]
-    );
-    res.json({ message: 'Answer posted' });
-  } catch (err) {
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-// Upvote/downvote a question
-app.post('/:id/vote', async (req, res) => {
-  const { user_id, vote_type } = req.body; // vote_type: 'up' or 'down'
-  try {
-    // Prevent multiple votes by same user
-    const [existing] = await db.query(
-      'SELECT * FROM votes WHERE question_id = ? AND user_id = ?',
-      [req.params.id, user_id]
-    );
-    if (existing.length) {
-      await db.query(
-        'UPDATE votes SET vote_type = ? WHERE question_id = ? AND user_id = ?',
-        [vote_type, req.params.id, user_id]
-      );
-    } else {
-      await db.query(
-        'INSERT INTO votes (question_id, user_id, vote_type) VALUES (?, ?, ?)',
-        [req.params.id, user_id, vote_type]
-      );
-    }
-    res.json({ message: 'Vote recorded' });
-  } catch (err) {
-    res.status(500).json({ error: 'Database error' });
-  }
-});
 
 app.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
